@@ -67,7 +67,6 @@ void load_map(InputReader<T, Impl> &reader, Counter& counters, BitMap& read_map,
                     Result = strNew;
             }
             */
-        }
     }
 }
 
