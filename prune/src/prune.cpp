@@ -48,7 +48,7 @@ void load_map(InputReader<T, Impl> &reader, Counter& counters, BitMap& read_map,
         if (auto key=i->get_key(start, length)) {
             read_map[*key] = std::move(i);
             }
-        } else {  // key had N
+         else {  // key had N
             std::cout << i->get_read().get_id() << std::endl;
             ++counters["HasN"];
             ++counters["Replaced"];
@@ -67,6 +67,7 @@ void load_map(InputReader<T, Impl> &reader, Counter& counters, BitMap& read_map,
                     Result = strNew;
             }
             */
+        }
     }
 }
 
