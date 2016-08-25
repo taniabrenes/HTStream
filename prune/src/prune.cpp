@@ -1,4 +1,3 @@
-
 //  this is so we can implment hash function for dynamic_bitset
 #define BOOST_DYNAMIC_BITSET_DONT_USE_FRIENDS
 
@@ -43,15 +42,31 @@ template <class T, class Impl>
 void load_map(InputReader<T, Impl> &reader, Counter& counters, BitMap& read_map, size_t start, size_t length) {
     while(reader.has_next()) {
         auto i = reader.next();
-        std::cout << i->get_read().get_id() << std::endl;
+
         ++counters["TotalRecords"];
         //check for existance, store or compare quality and replace:
         if (auto key=i->get_key(start, length)) {
             read_map[*key] = std::move(i);
             }
         } else {  // key had N
+            std::cout << i->get_read().get_id() << std::endl;
             ++counters["HasN"];
+            ++counters["Replaced"];
+            // find string between two delimeters
+            // string str = "STARTDELIMITER_0_192.168.1.18_STOPDELIMITER";
+/*
+            unsigned first = str.find(N);
+            unsigned last = str.find(N);
+            std::string strNew = str.substr (first, last-first);
 
+            // keep the longest string
+            std::string Result;  // holds name
+
+            for (int i = 0; i < 5; i++) {
+                if (strNew.length() > Result.length())
+                    Result = strNew;
+            }
+            */
         }
     }
 }
@@ -232,4 +247,3 @@ int main(int argc, char** argv)
     return SUCCESS;
 
 }
-
