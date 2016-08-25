@@ -22,4 +22,4 @@ enable_testing()
 
 add_subdirectory(common)
 add_subdirectory(Super-Deduper)
-add_subdirectory(Prune)
+add_subdirectory(prune)
