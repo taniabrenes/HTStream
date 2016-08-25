@@ -8,7 +8,7 @@ if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
 endif()
 if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Weverything -Wno-c++98-compat-pedantic -Wno-padded -Wno-undef -Wno-weak-vtables -Wno-global-constructors -Wno-missing-prototypes")
-## todo libc++ 
+## todo libc++
 # -stdlib=libc++")
 #  set(PROJECT_LINK_LIBS "-lc++ -lc++abi -lm -lc -lgcc_s -lgcc")
 endif()
@@ -22,3 +22,4 @@ enable_testing()
 
 add_subdirectory(common)
 add_subdirectory(Super-Deduper)
+add_subdirectory(prune)
