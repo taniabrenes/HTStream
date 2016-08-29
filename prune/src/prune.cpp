@@ -52,42 +52,61 @@ void load_map(InputReader<T, Impl> &reader, Counter& counters, BitMap& read_map,
             } 
         else {  // key had N 
             ++counters["HasN"];
-            //output the current sequence
-            std::cout << "HasN" << std::endl;
-            std::cout << i->get_read_one().get_seq() << std::endl;
             // pull out our sequence as a string
             std::string str = i->get_read_one().get_seq();
             // what are looking for
-            std::string str2 ("NNN");
-            // find first instance of "NNN" position
+            std::string str2 ("N");
+            // find first instance of "N" position
             unsigned first = str.find(str2);
-            // find last instance of "NNN" position
+            // find last instance of "N" position
             unsigned last = str.find_last_of(str2);
             // create substring of first instance to last instance
-            std::string strNew = str.substr (first, last-first);
-            // find all occurences of str2 in substring
-            std::vector<size_t> positions; // holds all the positions that sub occurs within str
+            std::string subStr = str.substr (first, last-first);
+            // holds all the positions that sub occurs within str
+            std::vector<size_t> positions; 
             // find first instance of "NNN" in substring
-            size_t pos = strNew.find(str2, 0);
-            while(pos != string::npos)
+            size_t pos = subStr.find(str2, 0);
+            while(pos != std::string::npos)
             {
                 positions.push_back(pos);
-                pos = strNew.find(str2, pos+1);
+                pos = subStr.find(str2, pos+1);
             }
             // find the difference between each vector position
+            std::vector<size_t> distance (positions.begin(),positions.end());  // iterating through positions
+            std::adjacent_difference (positions.begin(), positions.end(), distance.begin());
             // keep the positions with greatest distance
-            int result[positions.length()];
-            std::adjacent_difference (positions, positions+positions.length(), result);
-            std::cout << "using default adjacent_difference: ";
-            for (int i=0; i<positions.length(); i++) std::cout << result[i] << ' ';
-            std::cout << '\n';
+            size_t newIndex = 0, largest = 0;
+            //The index of the largest difference is:
+            for (auto it = distance.begin(); it != distance.end(); ++it){
+                auto index = std::distance(distance.begin(), it);
+                if (*it > largest){
+                    largest = *it;
+                    newIndex = index;
+                }
+            }
+            
+            std::cout << "Positions: ";
+            for (auto p = positions.begin(); p != positions.end(); ++p){
+                std::cout << *p ;
+                std::cout <<  " ";
+            }
+            std::cout << "\n";
 
-            //str = Result;
-            // replace string with longest
-            // output new sequence
-            //std::cout << "Result" << std::endl;
-            //std::cout << str << std::endl;
+            std::cout << "Distances: ";
+            for (auto p = distance.begin(); p != distance.end(); ++p){
+                std::cout << *p ;
+                std::cout <<  " ";
+            }
+            std::cout << "\n";
 
+            std::cout << "Our longest substring is: " << std::endl;
+            std::string newStr = subStr.substr(positions[newIndex-1], distance[newIndex]);
+            std::cout << newStr << std::endl;
+
+            std::cout << "Our new string is: " << std::endl;
+            std::string Result = str.replace(first, last-first + 1, newStr);
+            Result.erase(0, first);
+            std::cout << Result << std::endl;
         }
     }
 }
