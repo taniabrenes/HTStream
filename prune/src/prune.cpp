@@ -19,6 +19,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/functional/hash.hpp>
+#include <numeric>      // std::adjacent_difference
 
 namespace
 {
@@ -42,31 +43,51 @@ template <class T, class Impl>
 void load_map(InputReader<T, Impl> &reader, Counter& counters, BitMap& read_map, size_t start, size_t length) {
     while(reader.has_next()) {
         auto i = reader.next();
-
         ++counters["TotalRecords"];
+        start = 0; length = i->get_read_one().get_seq().length();
         //check for existance, store or compare quality and replace:
         if (auto key=i->get_key(start, length)) {
+            // find faster than count on some compilers
             read_map[*key] = std::move(i);
-            }
-         else {  // key had N
-            std::cout << i << std::endl;
+            } 
+        else {  // key had N 
             ++counters["HasN"];
-            ++counters["Replaced"];
-            // find string between two delimeters
-            // string str = "STARTDELIMITER_0_192.168.1.18_STOPDELIMITER";
-/*
-            unsigned first = str.find(N);
-            unsigned last = str.find(N);
+            //output the current sequence
+            std::cout << "HasN" << std::endl;
+            std::cout << i->get_read_one().get_seq() << std::endl;
+            // pull out our sequence as a string
+            std::string str = i->get_read_one().get_seq();
+            // what are looking for
+            std::string str2 ("NNN");
+            // find first instance of "NNN" position
+            unsigned first = str.find(str2);
+            // find last instance of "NNN" position
+            unsigned last = str.find_last_of(str2);
+            // create substring of first instance to last instance
             std::string strNew = str.substr (first, last-first);
-
-            // keep the longest string
-            std::string Result;  // holds name
-
-            for (int i = 0; i < 5; i++) {
-                if (strNew.length() > Result.length())
-                    Result = strNew;
+            // find all occurences of str2 in substring
+            std::vector<size_t> positions; // holds all the positions that sub occurs within str
+            // find first instance of "NNN" in substring
+            size_t pos = strNew.find(str2, 0);
+            while(pos != string::npos)
+            {
+                positions.push_back(pos);
+                pos = strNew.find(str2, pos+1);
             }
-            */
+            // find the difference between each vector position
+            // keep the positions with greatest distance
+            int result[positions.length()];
+            std::adjacent_difference (positions, positions+positions.length(), result);
+            std::cout << "using default adjacent_difference: ";
+            for (int i=0; i<positions.length(); i++) std::cout << result[i] << ' ';
+            std::cout << '\n';
+
+            //str = Result;
+            // replace string with longest
+            // output new sequence
+            //std::cout << "Result" << std::endl;
+            //std::cout << str << std::endl;
+
         }
     }
 }
@@ -100,7 +121,7 @@ int check_open_r(const std::string& filename) {
     if (!bf::exists(p)) {
         throw std::runtime_error("File " + filename + " was not found.");
     }
-
+    
     if (p.extension() == ".gz") {
         return fileno(popen(("gunzip -c " + filename).c_str(), "r"));
     } else {
@@ -122,7 +143,7 @@ int main(int argc, char** argv)
     bool tab_out = false;
     bool std_out = false;
     bool gzip_out = false;
-
+    
     try
     {
         /** Define and parse the program options
@@ -132,8 +153,8 @@ int main(int argc, char** argv)
         desc.add_options()
             ("version,v",                  "Version print")
             ("read1-input,1", po::value< std::vector<std::string> >(),
-                                           "Read 1 input <comma sep for multiple files>")
-            ("read2-input,2", po::value< std::vector<std::string> >(),
+                                           "Read 1 input <comma sep for multiple files>") 
+            ("read2-input,2", po::value< std::vector<std::string> >(), 
                                            "Read 2 input <comma sep for multiple files>")
             ("singleend-input,U", po::value< std::vector<std::string> >(),
                                            "Single end read input <comma sep for multiple files>")
@@ -186,7 +207,7 @@ int main(int argc, char** argv)
                 for(size_t i = 0; i < read1_files.size(); ++i) {
                     bi::stream<bi::file_descriptor_source> is1{check_open_r(read1_files[i]), bi::close_handle};
                     bi::stream<bi::file_descriptor_source> is2{check_open_r(read2_files[i]), bi::close_handle};
-
+                    
                     InputReader<PairedEndRead, PairedEndReadFastqImpl> ifp(is1, is2);
                     load_map(ifp, counters, read_map, start, length);
                 }
@@ -196,7 +217,7 @@ int main(int argc, char** argv)
                 for (auto file : read_files) {
                     std::ifstream read1(file, std::ifstream::in);
                     InputReader<SingleEndRead, SingleEndReadFastqImpl> ifs(read1);
-                    load_map(ifs, counters, read_map, start, length);
+                    //load_map(ifs, counters, read_map, start, length);
                 }
             }
 
@@ -204,14 +225,14 @@ int main(int argc, char** argv)
                 for (auto& outfile: default_outfiles) {
                     outfile = prefix + outfile + ".fastq";
                 }
-
+                
                 if (gzip_out) {
                     bi::stream<bi::file_descriptor_sink> out1{fileno(popen(("gzip > " + default_outfiles[0] + ".gz").c_str(), "w")), bi::close_handle};
                     bi::stream<bi::file_descriptor_sink> out2{fileno(popen(("gzip > " + default_outfiles[1] + ".gz").c_str(), "w")), bi::close_handle};
                     bi::stream<bi::file_descriptor_sink> out3{fileno(popen(("gzip > " + default_outfiles[2] + ".gz").c_str(), "w")), bi::close_handle};
 
                     output_read_map_fastq(read_map, out1, out2, out3);
-
+                    
                 } else {
                     // note: mapped file is faster but uses more memory
                     std::ofstream out1(default_outfiles[0], std::ofstream::out);
@@ -223,7 +244,7 @@ int main(int argc, char** argv)
                     output_read_map_fastq(read_map, out1, out2, out3);
                 }
             }
-
+            
         }
         catch(po::error& e)
         {
