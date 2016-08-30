@@ -55,6 +55,40 @@ struct test : public boost::static_visitor<> {
     }
 };*/
 
+template <class Reader, class Writer>
+void do_write_helper(Reader& reader, Writer &writer) {
+    while(reader.has_next()) {
+        auto read = reader.next();
+        writer->write(*read);
+    }
+}
+
+template <class Reader, class Writer>
+void do_write(Reader& reader, Writer &writer) {
+    switch (writer.which()) {
+    case 0:
+    {
+        auto w = boost::get<OutputWriter<PairedEndRead, PairedEndReadOutFastq> *>(writer);
+        do_write_helper(reader, w);
+    }
+        break;
+    case 1:
+    {
+        auto w = boost::get<OutputWriter<PairedEndRead, PairedEndReadOutInter> *>(writer);
+        do_write_helper(reader, w);
+    }
+        break;
+    case 2:
+    {
+//        auto w = boost::get<OutputWriter<PairedEndRead, ReadBaseOutTab> *>(writer);
+//        do_write_helper(reader, w);
+    }
+    break;
+        
+    }
+
+}
+
 int main(int argc, char** argv)
 {
     Counter counters;
@@ -120,13 +154,13 @@ int main(int argc, char** argv)
             //OutputWriter<ReadBase, InputFastq> pofs;
             //OutputWriter<ReadBase, InputFastq> sofs;
             //typedef boost::variant<OutputWriter<PairedEndRead, PairedEndReadOutFastq>, OutputWriter<PairedEndRead, PairedEndReadOutInter>, OutputWriter<PairedEndRead, ReadBaseOutTab>> PE_Writer;
-            //typedef boost::variant<OutputWriter<PairedEndRead, PairedEndReadOutFastq> *, OutputWriter<PairedEndRead, PairedEndReadOutInter> *, OutputWriter<PairedEndRead, ReadBaseOutTab> *> PE_Writer;
+            typedef boost::variant<OutputWriter<PairedEndRead, PairedEndReadOutFastq> *, OutputWriter<PairedEndRead, PairedEndReadOutInter> *, OutputWriter<PairedEndRead, ReadBaseOutTab> *> PE_Writer;
             //typedef boost::variant<OutputWriter<SingleEndRead, SingleEndReadOutFastq> *> SE_Writer;
-            
+            PE_Writer writer;
             //PE_Writer pofs;
             //SE_Writer sofs;
             //void (*p)(ReadBase &);
-            Output *pe;
+            //Output *pe;
 
             if (fastq_out || (! std_out && ! tab_out) ) {
                 for (auto& outfile: default_outfiles) {
@@ -142,9 +176,10 @@ int main(int argc, char** argv)
                     std::ofstream out1(default_outfiles[0], std::ofstream::out);
                     std::ofstream out2(default_outfiles[1], std::ofstream::out);
                     std::ofstream out3(default_outfiles[2], std::ofstream::out);
-                    //OutputWriter<PairedEndRead, PairedEndReadOutFastq> pnew =  OutputWriter<PairedEndRead, PairedEndReadOutFastq>(out1, out2); 
+                    OutputWriter<PairedEndRead, PairedEndReadOutFastq> pnew =  OutputWriter<PairedEndRead, PairedEndReadOutFastq>(out1, out2); 
+                    writer = new OutputWriter<PairedEndRead, PairedEndReadOutFastq>(out1, out2);
                     //p = new  OutputWriter<PairedEndRead, PairedEndReadOutFastq>(out1, out2)::write;
-                    pe = new PairedEndReadOutFastq(out1, out2);
+                    //pe = new PairedEndReadOutFastq(out1, out2);
                     
                     //p =  (OutputWriter::write)
                     //PairedEndReadOutFastq *per = new PairedEndReadOutFastq(out1, out2);
@@ -175,9 +210,10 @@ int main(int argc, char** argv)
                 
                 if (gzip_out) {
                     bi::stream<bi::file_descriptor_sink> out1{fileno(popen(("gzip > " + default_outfiles[0] + ".gz").c_str(), "w")), bi::close_handle};
-                    //OutputWriter<ReadBase, ReadBaseOutTab> pofs(out1);
+                    //writer = new OutputWriter<ReadBase, ReadBaseOutTab>(out1);
                 } else {
                     std::ofstream out1(default_outfiles[0], std::ofstream::out);
+                    //writer = new OutputWriter<ReadBase, ReadBaseOutTab>(out1);
                     //OutputWriter<ReadBase, Output> pofs = OutputWriter<ReadBase, Output>(out1);
                     //OutputWriter<ReadBase, ReadBaseOutTab> pofs(out1);
                 }
@@ -197,8 +233,7 @@ int main(int argc, char** argv)
                     bi::stream<bi::file_descriptor_source> is2{check_open_r(read2_files[i]), bi::close_handle};
                     
                     InputReader<PairedEndRead, PairedEndReadFastqImpl> ifp(is1, is2);
-                    auto tmp = ifp.next();
-                    pe->write_read_out(*tmp);
+                    do_write(ifp, writer);
                 }
             }
             if(vm.count("singleend-input")) {
