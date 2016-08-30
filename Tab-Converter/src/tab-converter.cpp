@@ -80,11 +80,10 @@ void do_write(Reader& reader, Writer &writer) {
         break;
     case 2:
     {
-//        auto w = boost::get<OutputWriter<PairedEndRead, ReadBaseOutTab> *>(writer);
-//        do_write_helper(reader, w);
+        auto w = boost::get<OutputWriter<ReadBase, ReadBaseOutTab> *>(writer);
+        do_write_helper(reader, w);
     }
     break;
-        
     }
 
 }
@@ -154,7 +153,7 @@ int main(int argc, char** argv)
             //OutputWriter<ReadBase, InputFastq> pofs;
             //OutputWriter<ReadBase, InputFastq> sofs;
             //typedef boost::variant<OutputWriter<PairedEndRead, PairedEndReadOutFastq>, OutputWriter<PairedEndRead, PairedEndReadOutInter>, OutputWriter<PairedEndRead, ReadBaseOutTab>> PE_Writer;
-            typedef boost::variant<OutputWriter<PairedEndRead, PairedEndReadOutFastq> *, OutputWriter<PairedEndRead, PairedEndReadOutInter> *, OutputWriter<PairedEndRead, ReadBaseOutTab> *> PE_Writer;
+            typedef boost::variant<OutputWriter<PairedEndRead, PairedEndReadOutFastq> *, OutputWriter<PairedEndRead, PairedEndReadOutInter> *, OutputWriter<ReadBase, ReadBaseOutTab> *> PE_Writer;
             //typedef boost::variant<OutputWriter<SingleEndRead, SingleEndReadOutFastq> *> SE_Writer;
             PE_Writer writer;
             //PE_Writer pofs;
