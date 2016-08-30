@@ -7,9 +7,7 @@
 #include <vector>
 #include <fstream>
 #include "ioHandler.h"
-#include <map>
 #include <unordered_map>
-#include <boost/dynamic_bitset.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
@@ -19,7 +17,8 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/functional/hash.hpp>
-#include <numeric>      // std::adjacent_difference
+#include <boost/foreach.hpp>
+#include <boost/tokenizer.hpp>
 
 namespace
 {
@@ -29,106 +28,35 @@ namespace
 
 } // namespace
 
-class dbhash {
-public:
-    std::size_t operator() (const boost::dynamic_bitset<>& bs) const {
-        return boost::hash_value(bs.m_bits);
-    }
-};
-
 typedef std::unordered_map<std::string, size_t> Counter;
-typedef std::unordered_map <boost::dynamic_bitset<>, std::unique_ptr<ReadBase>, dbhash> BitMap;
+
+typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+boost::char_separator<char> sep(
+  "N", // dropped delimiters
+  "",  // kept delimiters
+  boost::keep_empty_tokens); // empty token policy
 
 template <class T, class Impl>
-void load_map(InputReader<T, Impl> &reader, Counter& counters, BitMap& read_map, size_t start, size_t length) {
-    while(reader.has_next()) {
+void find_longest(InputReader<T, Impl> &reader) {
+    // we want to keep the longest continuous sequence without N's
+    while(reader.has_next()) { // iterate over file
         auto i = reader.next();
-        ++counters["TotalRecords"];
-        start = 0; length = i->get_read_one().get_seq().length();
-        //check for existance, store or compare quality and replace:
-        if (auto key=i->get_key(start, length)) {
-            // find faster than count on some compilers
-            read_map[*key] = std::move(i);
-            } 
-        else {  // key had N 
-            ++counters["HasN"];
-            // pull out our sequence as a string
-            std::string str = i->get_read_one().get_seq();
-            // what are looking for
-            std::string str2 ("N");
-            // find first instance of "N" position
-            unsigned first = str.find(str2);
-            // find last instance of "N" position
-            unsigned last = str.find_last_of(str2);
-            // create substring of first instance to last instance
-            std::string subStr = str.substr (first, last-first);
-            // holds all the positions that sub occurs within str
-            std::vector<size_t> positions; 
-            // find first instance of "NNN" in substring
-            size_t pos = subStr.find(str2, 0);
-            while(pos != std::string::npos)
+        // TODO: check if paired end or single end
+        std::string str = i->get_read_one().get_seq(); // paired end
+        // tokenize the string and keep the longest token
+        std::string result;
+        BOOST_FOREACH(std::string token, tokenizer(str, sep))
+        {
+            // don't store anything just keep the longest
+            if (token.length() > result.length())
             {
-                positions.push_back(pos);
-                pos = subStr.find(str2, pos+1);
-            }
-            // find the difference between each vector position
-            std::vector<size_t> distance (positions.begin(),positions.end());  // iterating through positions
-            std::adjacent_difference (positions.begin(), positions.end(), distance.begin());
-            // keep the positions with greatest distance
-            size_t newIndex = 0, largest = 0;
-            //The index of the largest difference is:
-            for (auto it = distance.begin(); it != distance.end(); ++it){
-                auto index = std::distance(distance.begin(), it);
-                if (*it > largest){
-                    largest = *it;
-                    newIndex = index;
-                }
-            }
-            
-            std::cout << "Positions: ";
-            for (auto p = positions.begin(); p != positions.end(); ++p){
-                std::cout << *p ;
-                std::cout <<  " ";
-            }
-            std::cout << "\n";
-
-            std::cout << "Distances: ";
-            for (auto p = distance.begin(); p != distance.end(); ++p){
-                std::cout << *p ;
-                std::cout <<  " ";
-            }
-            std::cout << "\n";
-
-            std::cout << "Our longest substring is: " << std::endl;
-            std::string newStr = subStr.substr(positions[newIndex-1], distance[newIndex]);
-            std::cout << newStr << std::endl;
-
-            std::cout << "Our new string is: " << std::endl;
-            std::string Result = str.replace(first, last-first + 1, newStr);
-            Result.erase(0, first);
-            std::cout << Result << std::endl;
-        }
-    }
-}
-
-template <class T>
-void output_read_map_fastq(const BitMap& read_map, T& out1, T& out2, T& single) {
-
-    OutputWriter<PairedEndRead, PairedEndReadOutFastq> pofs(out1, out2);
-    OutputWriter<SingleEndRead, SingleEndReadOutFastq> sofs(single);
-    for(auto const &i : read_map) {
-        PairedEndRead* per = dynamic_cast<PairedEndRead*>(i.second.get());
-        if (per) {
-            pofs.write(*per);
-        } else {
-            SingleEndRead* ser = dynamic_cast<SingleEndRead*>(i.second.get());
-            if(ser) {
-                sofs.write(*ser);
-            }
-            else {
-                throw std::runtime_error("Unkown read found");
+                result.assign(token);
             }
         }
+        // output the result
+        std::cout << result << std::endl;
+        // ouput an empty line
+        std::cout << std::endl;
     }
 }
 
@@ -150,12 +78,11 @@ int check_open_r(const std::string& filename) {
 
 int main(int argc, char** argv)
 {
-    BitMap read_map;
+
     Counter counters;
     counters["TotalRecords"] = 0;
     counters["Replaced"] = 0;
     counters["HasN"] = 0;
-    size_t start = 0, length = 0;
     std::string prefix;
     std::vector<std::string> default_outfiles = {"PE1", "PE2", "SE"};
     bool fastq_out = false;
@@ -182,8 +109,6 @@ int main(int argc, char** argv)
             ("interleaved-input,I", po::value< std::vector<std::string> >(),
                                            "Interleaved input I <comma sep for multiple files>")
             ("stdin-input,S",              "STDIN input <MUST BE TAB DELIMITED INPUT>")
-            ("start,s", po::value<size_t>(&start)->default_value(10),  "Start location for unique ID <int>")
-            ("length,l", po::value<size_t>(&length)->default_value(10), "Length of unique ID <int>")
             ("quality-check-off,q",        "Quality Checking Off First Duplicate seen will be kept")
             ("gzip-output,g", po::bool_switch(&gzip_out)->default_value(false),  "Output gzipped")
             ("interleaved-output, i",      "Output to interleaved")
@@ -207,7 +132,7 @@ int main(int argc, char** argv)
              */
             if ( vm.count("help")  || vm.size() == 0)
             {
-                std::cout << "Super-Deduper" << std::endl
+                std::cout << "Prune" << std::endl
                           << desc << std::endl;
                 return SUCCESS;
             }
@@ -228,7 +153,7 @@ int main(int argc, char** argv)
                     bi::stream<bi::file_descriptor_source> is2{check_open_r(read2_files[i]), bi::close_handle};
                     
                     InputReader<PairedEndRead, PairedEndReadFastqImpl> ifp(is1, is2);
-                    load_map(ifp, counters, read_map, start, length);
+                    find_longest(ifp);
                 }
             }
             if(vm.count("singleend-input")) {
@@ -236,7 +161,7 @@ int main(int argc, char** argv)
                 for (auto file : read_files) {
                     std::ifstream read1(file, std::ifstream::in);
                     InputReader<SingleEndRead, SingleEndReadFastqImpl> ifs(read1);
-                    //load_map(ifs, counters, read_map, start, length);
+                    //find_longest(ifs);
                 }
             }
 
@@ -250,7 +175,6 @@ int main(int argc, char** argv)
                     bi::stream<bi::file_descriptor_sink> out2{fileno(popen(("gzip > " + default_outfiles[1] + ".gz").c_str(), "w")), bi::close_handle};
                     bi::stream<bi::file_descriptor_sink> out3{fileno(popen(("gzip > " + default_outfiles[2] + ".gz").c_str(), "w")), bi::close_handle};
 
-                    output_read_map_fastq(read_map, out1, out2, out3);
                     
                 } else {
                     // note: mapped file is faster but uses more memory
@@ -260,7 +184,6 @@ int main(int argc, char** argv)
                     //bi::stream<bi::mapped_file_sink> out1{default_outfiles[0].c_str()};
                     //bi::stream<bi::mapped_file_sink> out2{default_outfiles[1].c_str()};
                     //bi::stream<bi::mapped_file_sink> out3{default_outfiles[2].c_str()};
-                    output_read_map_fastq(read_map, out1, out2, out3);
                 }
             }
             
@@ -281,9 +204,11 @@ int main(int argc, char** argv)
 
     }
 
-    std::cerr << "TotalRecords:" << counters["TotalRecords"] << "\tReplaced:" << counters["Replaced"]
-              << "\tKept:" << read_map.size() << "\tRemoved:" << counters["TotalRecords"] - read_map.size()
-              << "\tHasN:" << counters["HasN"] << std::endl;
+    std::cerr << "TotalRecords:" << counters["TotalRecords"] 
+            << "\tReplaced:" << counters["Replaced"]
+            //<< "\tKept:" << read_map.size() 
+            //<< "\tRemoved:" << counters["TotalRecords"] - read_map.size()
+            << "\tHasN:" << counters["HasN"] << std::endl;
     return SUCCESS;
 
 }
