@@ -19,7 +19,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/functional/hash.hpp>
-
+#include <boost/variant.hpp>
 namespace
 {
     const size_t SUCCESS = 0;
@@ -45,6 +45,15 @@ int check_open_r(const std::string& filename) {
         return fileno(fopen(filename.c_str(), "r"));
     }
 }
+/*
+struct test : public boost::static_visitor<> {
+    
+    template <class T, class Impl>
+    test(OutputWriter<T, Impl> **_out) { out = *_out; } 
+    void operator()(Impl &data ) const {
+        out->write(data);
+    }
+};*/
 
 int main(int argc, char** argv)
 {
@@ -52,7 +61,6 @@ int main(int argc, char** argv)
     counters["TotalRecords"] = 0;
     counters["Replaced"] = 0;
     counters["HasN"] = 0;
-    size_t start = 0, length = 0;
     std::string prefix;
     std::vector<std::string> default_outfiles = {"PE1", "PE2", "SE"};
 
@@ -111,7 +119,15 @@ int main(int argc, char** argv)
             po::notify(vm); // throws on error, so do after help in case
             //OutputWriter<ReadBase, InputFastq> pofs;
             //OutputWriter<ReadBase, InputFastq> sofs;
-            auto pofs;
+            //typedef boost::variant<OutputWriter<PairedEndRead, PairedEndReadOutFastq>, OutputWriter<PairedEndRead, PairedEndReadOutInter>, OutputWriter<PairedEndRead, ReadBaseOutTab>> PE_Writer;
+            //typedef boost::variant<OutputWriter<PairedEndRead, PairedEndReadOutFastq> *, OutputWriter<PairedEndRead, PairedEndReadOutInter> *, OutputWriter<PairedEndRead, ReadBaseOutTab> *> PE_Writer;
+            //typedef boost::variant<OutputWriter<SingleEndRead, SingleEndReadOutFastq> *> SE_Writer;
+            
+            //PE_Writer pofs;
+            //SE_Writer sofs;
+            //void (*p)(ReadBase &);
+            Output *pe;
+
             if (fastq_out || (! std_out && ! tab_out) ) {
                 for (auto& outfile: default_outfiles) {
                     outfile = prefix + outfile + ".fastq";
@@ -121,16 +137,20 @@ int main(int argc, char** argv)
                     bi::stream<bi::file_descriptor_sink> out1{fileno(popen(("gzip > " + default_outfiles[0] + ".gz").c_str(), "w")), bi::close_handle};
                     bi::stream<bi::file_descriptor_sink> out2{fileno(popen(("gzip > " + default_outfiles[1] + ".gz").c_str(), "w")), bi::close_handle};
                     bi::stream<bi::file_descriptor_sink> out3{fileno(popen(("gzip > " + default_outfiles[2] + ".gz").c_str(), "w")), bi::close_handle};
-                    OutputWriter<PairedEndRead, PairedEndReadOutFastq> pofstmp(out1, out2);
-                    //OutputWriter<SingleEndRead, SingleEndReadOutFastq> sofstmp(out3);
-                    pofs = pofstmp;
                 } else {
                     // note: mapped file is faster but uses more memory
                     std::ofstream out1(default_outfiles[0], std::ofstream::out);
                     std::ofstream out2(default_outfiles[1], std::ofstream::out);
                     std::ofstream out3(default_outfiles[2], std::ofstream::out);
-                    /*OutputWriter<PairedEndRead, PairedEndReadOutFastq> pofstmp(out1, out2);
-                    OutputWriter<SingleEndRead, SingleEndReadOutFastq> sofstmp(out3);*/
+                    //OutputWriter<PairedEndRead, PairedEndReadOutFastq> pnew =  OutputWriter<PairedEndRead, PairedEndReadOutFastq>(out1, out2); 
+                    //p = new  OutputWriter<PairedEndRead, PairedEndReadOutFastq>(out1, out2)::write;
+                    pe = new PairedEndReadOutFastq(out1, out2);
+                    
+                    //p =  (OutputWriter::write)
+                    //PairedEndReadOutFastq *per = new PairedEndReadOutFastq(out1, out2);
+                    //OutputWriter<ReadBase, Output> *pofs;
+                    //pofs = new OutputWriter<PairedEndRead, per>;
+                    //sofs = new  OutputWriter<SingleEndRead, SingleEndReadOutFastq>(out3);
                 }
             } else if (interleaved_out)  {
                 for (auto& outfile: default_outfiles) {
@@ -140,8 +160,8 @@ int main(int argc, char** argv)
                 if (gzip_out) {
                     bi::stream<bi::file_descriptor_sink> out1{fileno(popen(("gzip > " + default_outfiles[0] + ".gz").c_str(), "w")), bi::close_handle};
                     bi::stream<bi::file_descriptor_sink> out3{fileno(popen(("gzip > " + default_outfiles[2] + ".gz").c_str(), "w")), bi::close_handle};
-                    /*OutputWriter<PairedEndRead, PairedEndReadOutInter> pofs(out1);
-                    OutputWriter<SingleEndRead, SingleEndReadOutFastq> sofs(out3);*/
+                    //pofs = OutputWriter<PairedEndRead, PairedEndReadOutInter> (out1);
+                    //sofs = OutputWriter<SingleEndRead, SingleEndReadOutFastq>(out3);
                 } else {
                     std::ofstream out1(default_outfiles[0], std::ofstream::out);
                     std::ofstream out3(default_outfiles[2], std::ofstream::out);
@@ -158,11 +178,10 @@ int main(int argc, char** argv)
                     //OutputWriter<ReadBase, ReadBaseOutTab> pofs(out1);
                 } else {
                     std::ofstream out1(default_outfiles[0], std::ofstream::out);
+                    //OutputWriter<ReadBase, Output> pofs = OutputWriter<ReadBase, Output>(out1);
                     //OutputWriter<ReadBase, ReadBaseOutTab> pofs(out1);
                 }
             }
-            
-            
             // there are any problems
             if(vm.count("read1-input")) {
                 if (!vm.count("read2-input")) {
@@ -178,7 +197,8 @@ int main(int argc, char** argv)
                     bi::stream<bi::file_descriptor_source> is2{check_open_r(read2_files[i]), bi::close_handle};
                     
                     InputReader<PairedEndRead, PairedEndReadFastqImpl> ifp(is1, is2);
-                    //pofs.write(ifp);
+                    auto tmp = ifp.next();
+                    pe->write_read_out(*tmp);
                 }
             }
             if(vm.count("singleend-input")) {

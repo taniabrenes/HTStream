@@ -67,7 +67,13 @@ public:
     void write(const T& data);
 };
 
-class OutputFastq {
+class Output {
+    public:
+    virtual void write_read_out(const PairedEndRead &data) { };
+    virtual void  write_read_out(const ReadBase &data) { };
+};
+
+class OutputFastq : public Output {
 protected:
     void write_read(const Read& read, std::ostream &output);
 };
@@ -85,6 +91,8 @@ class PairedEndReadOutFastq : public OutputFastq {
 public:
     PairedEndReadOutFastq(std::ostream& out1_, std::ostream& out2_) : out1(out1_), out2(out2_) {}
     ~PairedEndReadOutFastq() { out1.flush(); out2.flush(); }
+    void write_read_out(const PairedEndRead &data) { };
+    void write_read_out(const ReadBase &data) { };
 protected:
     std::ostream &out1, &out2;
 };
@@ -97,7 +105,7 @@ protected:
     std::ostream &out1;
 };
 
-class OutputTab {
+class OutputTab : public Output {
 protected:
     void write_read(const Read& read1, const Read& read2, std::ostream &output);
     void write_read(const Read& read, std::ostream &output);
