@@ -36,16 +36,64 @@ boost::char_separator<char> sep(
   "",  // kept delimiters
   boost::keep_empty_tokens); // empty token policy
 
+/*
+In constructing this template I initially had a test for if
+paired or if single read end. The true/false conditions
+would not set at compile time. The simplest fix is partial 
+template specialization but I didn't know how to do that
+so I just created separate objects.
+*/
+
 template <class T, class Impl>
-void find_longest(InputReader<T, Impl> &reader) {
+void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
     // we want to keep the longest continuous sequence without N's
     while(reader.has_next()) { // iterate over file
+        ++counters["TotalRecords"];
         auto i = reader.next();
-        // TODO: check if paired end or single end
-        std::string str = i->get_read_one().get_seq(); // paired end
+        std::string str_read_one = i->get_read_one().get_seq(); // paired end one
+        std::string str_read_two = i->get_read_two().get_seq(); // paired end two
+        std::string result_read_one; // will be the longest string from read one
+        std::string result_read_two; // will be the longest string from read two
         // tokenize the string and keep the longest token
+        BOOST_FOREACH(std::string token, tokenizer(str_read_one, sep))
+        {
+            // don't store anything just keep the longest
+            if (token.length() > result_read_one.length())
+            {
+                result_read_one.assign(token);
+            }
+        }
+        BOOST_FOREACH(std::string token, tokenizer(str_read_two, sep))
+        {
+            // don't store anything just keep the longest
+            if (token.length() > result_read_two.length())
+            {
+                result_read_two.assign(token);
+            }
+        }
+        // increase counts if sequences were replaced
+        if (result_read_one.length() < str_read_one.length())
+        {
+            ++counters["Replaced"];
+            ++counters["HasN"];
+        }        
+
+        // output the result
+        std::cout << result_read_one << std::endl;
+        // ouput an empty line
+        std::cout << std::endl;
+    }
+}
+
+template <class T, class Impl>
+void find_longest_single(InputReader<T, Impl> &reader, Counter& counters) {
+    // we want to keep the longest continuous sequence without N's
+    while(reader.has_next()) { // iterate over file
+        ++counters["TotalRecords"];
+        auto i = reader.next();
+        std::string str_read = i->get_read().get_seq(); // paired end
         std::string result;
-        BOOST_FOREACH(std::string token, tokenizer(str, sep))
+        BOOST_FOREACH(std::string token, tokenizer(str_read, sep))
         {
             // don't store anything just keep the longest
             if (token.length() > result.length())
@@ -53,11 +101,16 @@ void find_longest(InputReader<T, Impl> &reader) {
                 result.assign(token);
             }
         }
+        // increase counts if sequences were replaced
+        if (result.length() < str_read.length())
+        {
+            ++counters["Replaced"];
+            ++counters["HasN"];
+        }
         // output the result
         std::cout << result << std::endl;
         // ouput an empty line
-        std::cout << std::endl;
-    }
+        std::cout << std::endl;    }
 }
 
 namespace bi = boost::iostreams;
@@ -153,7 +206,7 @@ int main(int argc, char** argv)
                     bi::stream<bi::file_descriptor_source> is2{check_open_r(read2_files[i]), bi::close_handle};
                     
                     InputReader<PairedEndRead, PairedEndReadFastqImpl> ifp(is1, is2);
-                    find_longest(ifp);
+                    find_longest_paired(ifp, counters);
                 }
             }
             if(vm.count("singleend-input")) {
@@ -161,7 +214,7 @@ int main(int argc, char** argv)
                 for (auto file : read_files) {
                     std::ifstream read1(file, std::ifstream::in);
                     InputReader<SingleEndRead, SingleEndReadFastqImpl> ifs(read1);
-                    //find_longest(ifs);
+                    find_longest_single(ifs, counters);
                 }
             }
 
