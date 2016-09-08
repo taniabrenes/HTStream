@@ -43,6 +43,14 @@ would not set at compile time. The simplest fix is partial
 template specialization but I didn't know how to do that
 so I just created separate objects.
 */
+/*
+N remover loops through the entire read to find the 
+longest string with no N's. If this non-n chunk
+is greater than the minimum length requirement it is kept. If it isn't it
+is discarded. If it is a PE and only R1 is discarded, and the stranded
+option is set, R2 will become a SE RC read. Otherwise, the stand alone 
+read will stay the same if its mate is discarded. 
+*/
 
 template <class T, class Impl>
 void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
@@ -54,11 +62,12 @@ void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
         std::string str_read_two = i->get_read_two().get_seq(); // paired end two
         std::string result_read_one; // will be the longest string from read one
         std::string result_read_two; // will be the longest string from read two
+        int minimumLength = 20; // was this arbitrarily chose?
         // tokenize the string and keep the longest token
         BOOST_FOREACH(std::string token, tokenizer(str_read_one, sep))
         {
             // don't store anything just keep the longest
-            if (token.length() > result_read_one.length())
+            if (token.length() > result_read_one.length() && token.length())
             {
                 result_read_one.assign(token);
             }
@@ -66,22 +75,27 @@ void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
         BOOST_FOREACH(std::string token, tokenizer(str_read_two, sep))
         {
             // don't store anything just keep the longest
-            if (token.length() > result_read_two.length())
+            if (token.length() > result_read_one.length() && token.length())
             {
                 result_read_two.assign(token);
             }
         }
         // increase counts if sequences were replaced
-        if (result_read_one.length() < str_read_one.length())
+        if (result_read_one.length() < str_read_one.length() && \
+            result_read_one.length() > minimumLength)
         {
             ++counters["Replaced"];
             ++counters["HasN"];
-        }        
+            // output the result
+            std::cout << result_read_one << std::endl;
+            // ouput an empty line
+            std::cout << std::endl;
+            // write output to a file. 
 
-        // output the result
-        std::cout << result_read_one << std::endl;
-        // ouput an empty line
-        std::cout << std::endl;
+        } else
+        {
+            // discard it
+        }
     }
 }
 
@@ -102,15 +116,17 @@ void find_longest_single(InputReader<T, Impl> &reader, Counter& counters) {
             }
         }
         // increase counts if sequences were replaced
-        if (result.length() < str_read.length())
+        if (result_read_one.length() < str_read_one.length() && \
+            result_read_one.length() > minimumLength)
         {
             ++counters["Replaced"];
             ++counters["HasN"];
+            // output the result
+            std::cout << result << std::endl;
+            // ouput an empty line
+            std::cout << std::endl; 
         }
-        // output the result
-        std::cout << result << std::endl;
-        // ouput an empty line
-        std::cout << std::endl;    }
+   }
 }
 
 namespace bi = boost::iostreams;
@@ -216,30 +232,7 @@ int main(int argc, char** argv)
                     InputReader<SingleEndRead, SingleEndReadFastqImpl> ifs(read1);
                     find_longest_single(ifs, counters);
                 }
-            }
-
-            if (fastq_out || (! std_out && ! tab_out) ) {
-                for (auto& outfile: default_outfiles) {
-                    outfile = prefix + outfile + ".fastq";
-                }
-                
-                if (gzip_out) {
-                    bi::stream<bi::file_descriptor_sink> out1{fileno(popen(("gzip > " + default_outfiles[0] + ".gz").c_str(), "w")), bi::close_handle};
-                    bi::stream<bi::file_descriptor_sink> out2{fileno(popen(("gzip > " + default_outfiles[1] + ".gz").c_str(), "w")), bi::close_handle};
-                    bi::stream<bi::file_descriptor_sink> out3{fileno(popen(("gzip > " + default_outfiles[2] + ".gz").c_str(), "w")), bi::close_handle};
-
-                    
-                } else {
-                    // note: mapped file is faster but uses more memory
-                    std::ofstream out1(default_outfiles[0], std::ofstream::out);
-                    std::ofstream out2(default_outfiles[1], std::ofstream::out);
-                    std::ofstream out3(default_outfiles[2], std::ofstream::out);
-                    //bi::stream<bi::mapped_file_sink> out1{default_outfiles[0].c_str()};
-                    //bi::stream<bi::mapped_file_sink> out2{default_outfiles[1].c_str()};
-                    //bi::stream<bi::mapped_file_sink> out3{default_outfiles[2].c_str()};
-                }
-            }
-            
+            }            
         }
         catch(po::error& e)
         {
