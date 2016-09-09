@@ -1,3 +1,19 @@
+/*
+In constructing the templates I initially had a test for if
+paired or if single read end. The true/false conditions
+would not set at compile time. The simplest fix is partial 
+template specialization but I didn't know how to do that
+so I just created separate objects.
+
+-ChrisM
+
+I used the Super-Deduper.cpp as the codebase.
+I removed the unneccessry libraries for the 
+unordered map since I won't be using those. I removed the
+basic workhorse template function and added the
+counters that I needed for the meta data.
+*/
+
 //  this is so we can implment hash function for dynamic_bitset
 #define BOOST_DYNAMIC_BITSET_DONT_USE_FRIENDS
 
@@ -37,21 +53,14 @@ boost::char_separator<char> sep(
   boost::keep_empty_tokens); // empty token policy
 
 /*
-In constructing this template I initially had a test for if
-paired or if single read end. The true/false conditions
-would not set at compile time. The simplest fix is partial 
-template specialization but I didn't know how to do that
-so I just created separate objects.
-*/
-/*
-N remover loops through the entire read to find the 
+Loops through the entire read to find the 
 longest string with no N's. If this non-n chunk
 is greater than the minimum length requirement it is kept. If it isn't it
 is discarded. If it is a PE and only R1 is discarded, and the stranded
 option is set, R2 will become a SE RC read. Otherwise, the stand alone 
 read will stay the same if its mate is discarded. 
+TODO: Implement stranded option
 */
-
 template <class T, class Impl>
 void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
     // we want to keep the longest continuous sequence without N's
@@ -95,6 +104,7 @@ void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
         } else
         {
             // discard it
+            ++counters["Discarded"];
         }
     }
 }
@@ -125,6 +135,9 @@ void find_longest_single(InputReader<T, Impl> &reader, Counter& counters) {
             std::cout << result << std::endl;
             // ouput an empty line
             std::cout << std::endl; 
+        }else {
+            // discard it
+            ++counters["Discarded"];
         }
    }
 }
@@ -152,6 +165,8 @@ int main(int argc, char** argv)
     counters["TotalRecords"] = 0;
     counters["Replaced"] = 0;
     counters["HasN"] = 0;
+    counters["Kept"] = 0;
+    coutners["Discarded"] = 0;
     std::string prefix;
     std::vector<std::string> default_outfiles = {"PE1", "PE2", "SE"};
     bool fastq_out = false;
@@ -250,11 +265,10 @@ int main(int argc, char** argv)
 
     }
 
-    std::cerr << "TotalRecords:" << counters["TotalRecords"] 
-            << "\tReplaced:" << counters["Replaced"]
-            //<< "\tKept:" << read_map.size() 
-            //<< "\tRemoved:" << counters["TotalRecords"] - read_map.size()
-            << "\tHasN:" << counters["HasN"] << std::endl;
+    std::cerr << "TotalRecords" << "\tReplaced" << "\tHasN" 
+            << "\t"counters["TotalRecords"] << "\t"counters["Replaced"] << "\t"counters["HasN"] 
+
+            << std::endl;
     return SUCCESS;
 
 }
