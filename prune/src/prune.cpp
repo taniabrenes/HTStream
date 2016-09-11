@@ -71,7 +71,7 @@ void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
         std::string str_read_two = i->get_read_two().get_seq(); // paired end two
         std::string result_read_one; // will be the longest string from read one
         std::string result_read_two; // will be the longest string from read two
-        int minimumLength = 20; // was this arbitrarily chose?
+        int minimumLength = 24; // was this arbitrarily chose?
         // tokenize the string and keep the longest token
         BOOST_FOREACH(std::string token, tokenizer(str_read_one, sep))
         {
@@ -96,9 +96,9 @@ void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
             ++counters["Replaced"];
             ++counters["HasN"];
             // output the result
-            std::cout << result_read_one << std::endl;
+            //std::cout << result_read_one << std::endl;
             // ouput an empty line
-            std::cout << std::endl;
+            //std::cout << std::endl;
             // write output to a file. 
 
         } else
@@ -112,6 +112,7 @@ void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
 template <class T, class Impl>
 void find_longest_single(InputReader<T, Impl> &reader, Counter& counters) {
     // we want to keep the longest continuous sequence without N's
+    int minimumLength = 24;
     while(reader.has_next()) { // iterate over file
         ++counters["TotalRecords"];
         auto i = reader.next();
@@ -126,8 +127,8 @@ void find_longest_single(InputReader<T, Impl> &reader, Counter& counters) {
             }
         }
         // increase counts if sequences were replaced
-        if (result_read_one.length() < str_read_one.length() && \
-            result_read_one.length() > minimumLength)
+        if (result.length() < str_read.length() && \
+            result.length() > minimumLength)
         {
             ++counters["Replaced"];
             ++counters["HasN"];
@@ -166,7 +167,7 @@ int main(int argc, char** argv)
     counters["Replaced"] = 0;
     counters["HasN"] = 0;
     counters["Kept"] = 0;
-    coutners["Discarded"] = 0;
+    counters["Discarded"] = 0;
     std::string prefix;
     std::vector<std::string> default_outfiles = {"PE1", "PE2", "SE"};
     bool fastq_out = false;
@@ -232,7 +233,8 @@ int main(int argc, char** argv)
                 auto read1_files = vm["read1-input"].as<std::vector<std::string> >();
                 auto read2_files = vm["read2-input"].as<std::vector<std::string> >();
 
-                for(size_t i = 0; i < read1_files.size(); ++i) {
+                for(size_t i = 0; i < read1_files.size(); ++i) { // JIC there are many input files
+
                     bi::stream<bi::file_descriptor_source> is1{check_open_r(read1_files[i]), bi::close_handle};
                     bi::stream<bi::file_descriptor_source> is2{check_open_r(read2_files[i]), bi::close_handle};
                     
@@ -266,8 +268,7 @@ int main(int argc, char** argv)
     }
 
     std::cerr << "TotalRecords" << "\tReplaced" << "\tHasN" 
-            << "\t"counters["TotalRecords"] << "\t"counters["Replaced"] << "\t"counters["HasN"] 
-
+            << "\t " << counters["TotalRecords"] << "\t " << counters["Replaced"] << "\t " << counters["HasN"] 
             << std::endl;
     return SUCCESS;
 
