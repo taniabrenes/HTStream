@@ -5,7 +5,6 @@ file(GLOB sources "src/*.cpp")
 
 message( status "sources: " ${sources})
 
-
 set(COMMON_INCLUDES ${CMAKE_SOURCE_DIR}/common/src)
 
 set(PROJECT_LINK_LIBS hts_common)
@@ -14,15 +13,8 @@ link_directories(${CMAKE_BINARY_DIR}/common)
 FIND_PACKAGE( Boost 1.56 COMPONENTS system program_options iostreams filesystem REQUIRED )
 include_directories(${COMMON_INCLUDES} ${Boost_INCLUDE_DIR} )
 
-
 add_executable(nremover ${sources})
 target_link_libraries(nremover ${PROJECT_LINK_LIBS} ${Boost_LIBRARIES})
-
-add_custom_target(testNR
-  DEPENDS nremover
-  COMMAND ${CMAKE_COMMAND} -E env "PATH=$ENV{PATH}:${CMAKE_BINARY_DIR}/NRemover" python ${CMAKE_SOURCE_DIR}/NRemover/test_suite/testNR.py
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/NRemover/test_suite
-)
 
 ## test
 set(PROJECT_TEST_NAME ${PROJECT_NAME}_test)
