@@ -19,10 +19,7 @@ boost::char_separator<char> sep(
 Loops through the entire read to find the 
 longest string with no N's. If this non-n chunk
 is greater than the minimum length requirement it is kept. If it isn't it
-is discarded. If it is a PE and only R1 is discarded, and the stranded
-option is set, R2 will become a SE RC read. Otherwise, the stand alone 
-read will stay the same if its mate is discarded. 
-TODO: Implement stranded option
+is discarded. 
 */
 template <class T, class Impl>
 void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
@@ -47,7 +44,7 @@ void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
         BOOST_FOREACH(std::string token, tokenizer(str_read_two, sep))
         {
             // don't store anything just keep the longest
-            if (token.length() > result_read_one.length() && token.length())
+            if (token.length() > result_read_two.length() && token.length())
             {
                 result_read_two.assign(token);
             }
@@ -58,12 +55,12 @@ void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
         {
             ++counters["Replaced"];
             ++counters["HasN"];
-
         } else
         {
             // discard it
             ++counters["Discarded"];
         }
+        // output the result to file
     }
 }
 
@@ -90,10 +87,6 @@ void find_longest_single(InputReader<T, Impl> &reader, Counter& counters) {
         {
             ++counters["Replaced"];
             ++counters["HasN"];
-            // output the result
-            std::cout << result << std::endl;
-            // ouput an empty line
-            std::cout << std::endl; 
         }else {
             // discard it
             ++counters["Discarded"];

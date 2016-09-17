@@ -13,7 +13,7 @@ unordered map since I won't be using those. I removed the
 basic workhorse template function and added the
 counters that I needed for the meta data.
 */
-
+#include "nremover.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -27,8 +27,8 @@ counters that I needed for the meta data.
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/functional/hash.hpp>
-#include "nremover.h"
+#include <boost/program_options.hpp>
+
 
 namespace
 {
