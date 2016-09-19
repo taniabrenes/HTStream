@@ -22,8 +22,5 @@ enable_testing()
 
 add_subdirectory(common)
 add_subdirectory(Super-Deduper)
-<<<<<<< HEAD
 add_subdirectory(NRemover)
-=======
 add_subdirectory(Tab-Converter)
->>>>>>> master
