@@ -55,6 +55,7 @@ void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
         {
             ++counters["Replaced"];
             ++counters["HasN"];
+            i->get_read_one().get_seq().assign(result_read_one);
         } else
         {
             // discard it
