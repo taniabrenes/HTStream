@@ -31,6 +31,7 @@ int main(int argc, char** argv)
     counters["Replaced"] = 0;
     counters["HasN"] = 0;
     counters["Discarded"] = 0;
+    counters["Kept"] = 0;
     size_t start = 0, length = 0;
     std::string prefix;
     std::vector<std::string> default_outfiles = {"PE1", "PE2", "SE"};
@@ -127,8 +128,13 @@ int main(int argc, char** argv)
                 for (auto file : read_files) {
                     bi::stream<bi::file_descriptor_source> se{ check_open_r(file), bi::close_handle};
                     InputReader<SingleEndRead, SingleEndReadFastqImpl> ifs(se);
-                    //load_map(ifs, counters, read_map, start, length);
-                }
+                    while(ifs.has_next()) { // iterate over data
+                        ++counters["TotalRecords"];
+                        auto i = ifs.next();
+                        std::string read = i->get_read().get_seq(); // paired end one
+                        find_longest(read, counters);
+                        } 
+                   }
             }
             
             if(vm.count("tab-input")) {

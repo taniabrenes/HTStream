@@ -34,6 +34,7 @@ void find_longest(std::string& str_read, Counter& counters){
         }
     }
     // increase counts if sequences were replaced
+    // this does not differentiate between read one and read two
     if (result_read.length() < str_read.length() && \
         result_read.length() > minimumLength)
     {
@@ -41,9 +42,18 @@ void find_longest(std::string& str_read, Counter& counters){
         ++counters["HasN"];
         // create new read object
         // write out
-    } else
+        //std::cout << str_read << std::endl;
+        //std::cout << result_read << std::endl;
+    }  
+    else if (result_read == str_read )
+    {
+        ++counters["Kept"];
+        // create new read object
+        // write out
+    } 
+    else
     {
         // discard it
         ++counters["Discarded"];
-    }       
+    }      
 }

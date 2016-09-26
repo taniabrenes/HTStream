@@ -20,6 +20,8 @@ TEST_F(NRemoverTest, HashMapLoadTest) {
     counter["Replaced"] = 0;
     counter["HasN"] = 0;
     counter["Discarded"] = 0;
+    counter["Kept"] = 0;
+
 
     InputReader<PairedEndRead, PairedEndReadFastqImpl> ifp(in1, in2);
     while(ifp.has_next()) { // iterate over data
@@ -31,8 +33,8 @@ TEST_F(NRemoverTest, HashMapLoadTest) {
         find_longest(read_two, counter);
         }
     ASSERT_EQ(counter["TotalRecords"], 4);
-    ASSERT_EQ(counter["Replaced"], 0);
-    ASSERT_EQ(counter["HasN"], 1);
+    ASSERT_EQ(counter["Replaced"], 2);
+    ASSERT_EQ(counter["HasN"], 2);
     ASSERT_EQ(counter["Discarded"], 0);
     
 };
