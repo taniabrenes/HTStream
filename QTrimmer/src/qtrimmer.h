@@ -6,7 +6,7 @@
 typedef std::unordered_map<std::string, size_t> Counter;
 
 template <class T, class Impl>
-void qualit_trimmer(InputReader<T, Impl> &reader, Counter& counters, int& min_quality_threshold) {
+void quality_trimmer(InputReader<T, Impl> &reader, Counter& counters, int& min_quality_threshold) {
 
     while (reader.has_next()) {
         ++counters["TotalRecords"];

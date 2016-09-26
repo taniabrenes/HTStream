@@ -21,76 +21,29 @@ longest string with no N's. If this non-n chunk
 is greater than the minimum length requirement it is kept. If it isn't it
 is discarded. 
 */
-template <class T, class Impl>
-void find_longest_paired(InputReader<T, Impl> &reader, Counter& counters) {
-    // we want to keep the longest continuous sequence without N's
-    while(reader.has_next()) { // iterate over file
-        ++counters["TotalRecords"];
-        auto i = reader.next();
-        std::string str_read_one = i->get_read_one().get_seq(); // paired end one
-        std::string str_read_two = i->get_read_two().get_seq(); // paired end two
-        std::string result_read_one; // will be the longest string from read one
-        std::string result_read_two; // will be the longest string from read two
-        int minimumLength = 24; // was this arbitrarily chose?
-        // tokenize the string and keep the longest token
-        BOOST_FOREACH(std::string token, tokenizer(str_read_one, sep))
-        {
-            // don't store anything just keep the longest
-            if (token.length() > result_read_one.length() && token.length())
-            {
-                result_read_one.assign(token);
-            }
-        }
-        BOOST_FOREACH(std::string token, tokenizer(str_read_two, sep))
-        {
-            // don't store anything just keep the longest
-            if (token.length() > result_read_two.length() && token.length())
-            {
-                result_read_two.assign(token);
-            }
-        }
-        // increase counts if sequences were replaced
-        if (result_read_one.length() < str_read_one.length() && \
-            result_read_one.length() > minimumLength)
-        {
-            ++counters["Replaced"];
-            ++counters["HasN"];
-            i->get_read_one().get_seq().assign(result_read_one);
-        } else
-        {
-            // discard it
-            ++counters["Discarded"];
-        }
-        // output the result to file
-    }
-}
 
-template <class T, class Impl>
-void find_longest_single(InputReader<T, Impl> &reader, Counter& counters) {
-    // we want to keep the longest continuous sequence without N's
-    int minimumLength = 24;
-    while(reader.has_next()) { // iterate over file
-        ++counters["TotalRecords"];
-        auto i = reader.next();
-        std::string str_read = i->get_read().get_seq(); // paired end
-        std::string result;
-        BOOST_FOREACH(std::string token, tokenizer(str_read, sep))
+void find_longest(std::string& str_read, Counter& counters){
+    std::string result_read; // will be the longest string from read one
+    int minimumLength = 24; // was this arbitrarily chose?
+    BOOST_FOREACH(std::string token, tokenizer(str_read, sep))
+    {
+        // don't store anything just keep the longest
+        if (token.length() > result_read.length() && token.length())
         {
-            // don't store anything just keep the longest
-            if (token.length() > result.length())
-            {
-                result.assign(token);
-            }
+            result_read.assign(token);
         }
-        // increase counts if sequences were replaced
-        if (result.length() < str_read.length() && \
-            result.length() > minimumLength)
-        {
-            ++counters["Replaced"];
-            ++counters["HasN"];
-        }else {
-            // discard it
-            ++counters["Discarded"];
-        }
-   }
+    }
+    // increase counts if sequences were replaced
+    if (result_read.length() < str_read.length() && \
+        result_read.length() > minimumLength)
+    {
+        ++counters["Replaced"];
+        ++counters["HasN"];
+        // create new read object
+        // write out
+    } else
+    {
+        // discard it
+        ++counters["Discarded"];
+    }       
 }

@@ -19,14 +19,20 @@ TEST_F(NRemoverTest, HashMapLoadTest) {
     counter["TotalRecords"] = 0;
     counter["Replaced"] = 0;
     counter["HasN"] = 0;
+    counter["Discarded"] = 0;
 
     InputReader<PairedEndRead, PairedEndReadFastqImpl> ifp(in1, in2);
-    
-    //load_map(ifp, counter, read_map, start, length);
-    //std::cout << read_map.size() << '\n';
-    //ASSERT_EQ(read_map.size(), 1);
-    //ASSERT_EQ(counter["TotalRecords"], 4);
-    //ASSERT_EQ(counter["Replaced"], 2);
-    //ASSERT_EQ(counter["HasN"], 1);
+    while(ifp.has_next()) { // iterate over data
+        ++counter["TotalRecords"];
+        auto i = ifp.next();
+        std::string read_one = i->get_read_one().get_seq(); // paired end one
+        std::string read_two = i->get_read_two().get_seq(); // paired end one
+        find_longest(read_one, counter);
+        find_longest(read_two, counter);
+        }
+    ASSERT_EQ(counter["TotalRecords"], 4);
+    ASSERT_EQ(counter["Replaced"], 0);
+    ASSERT_EQ(counter["HasN"], 1);
+    ASSERT_EQ(counter["Discarded"], 0);
     
 };
