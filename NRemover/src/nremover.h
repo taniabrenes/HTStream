@@ -40,20 +40,16 @@ void find_longest(std::string& str_read, Counter& counters){
     {
         ++counters["Replaced"];
         ++counters["HasN"];
-        // create new read object
-        // write out
-        //std::cout << str_read << std::endl;
-        //std::cout << result_read << std::endl;
     }  
     else if (result_read == str_read )
     {
         ++counters["Kept"];
-        // create new read object
-        // write out
+
     } 
     else
     {
         // discard it
         ++counters["Discarded"];
     }      
+    str_read = result_read;
 }

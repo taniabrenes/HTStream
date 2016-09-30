@@ -36,5 +36,6 @@ TEST_F(NRemoverTest, HashMapLoadTest) {
     ASSERT_EQ(counter["Replaced"], 2);
     ASSERT_EQ(counter["HasN"], 2);
     ASSERT_EQ(counter["Discarded"], 0);
-    
+
+
 };

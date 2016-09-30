@@ -119,6 +119,10 @@ int main(int argc, char** argv)
                         std::string read_two = i->get_read_two().get_seq(); // paired end one
                         find_longest(read_one, counters);
                         find_longest(read_two, counters);
+                        // create new read objects
+                        Read r1(read_one, i->get_read_one().get_qual(), i->get_read_one().get_id());
+                        Read r2(read_two, i->get_read_two().get_qual(), i->get_read_two().get_id());
+                        // write out
                         }
                     }
             }
