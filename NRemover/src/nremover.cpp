@@ -135,8 +135,9 @@ int main(int argc, char** argv)
                     while(ifs.has_next()) { // iterate over data
                         ++counters["TotalRecords"];
                         auto i = ifs.next();
-                        std::string read = i->get_read().get_seq(); // paired end one
+                        std::string read = i->get_read().get_seq(); /
                         find_longest(read, counters);
+                        Read r1(read, i->get_read().get_qual(), i->get_read().get_id());
                         } 
                    }
             }
@@ -146,7 +147,13 @@ int main(int argc, char** argv)
                 for (auto file : read_files) {
                     bi::stream<bi::file_descriptor_source> tabin{ check_open_r(file), bi::close_handle};
                     InputReader<ReadBase, TabReadImpl> ift(tabin);
-                    //load_map(ift, counters, read_map, start, length);
+                    while(ift.has_next()) { // iterate over data
+                        ++counters["TotalRecords"];
+                        auto i = ifs.next();
+                        std::string read = i->get_read().get_seq(); 
+                        find_longest(read, counters);
+                        Read r1(read, i->get_read().get_qual(), i->get_read().get_id());
+                        } 
                 }
             }
             
@@ -155,14 +162,26 @@ int main(int argc, char** argv)
                 for (auto file : read_files) {
                     bi::stream<bi::file_descriptor_source> inter{ check_open_r(file), bi::close_handle};
                     InputReader<PairedEndRead, InterReadImpl> ifp(inter);
-                    //load_map(ifp, counters, read_map, start, length);
+                    while(ifp.has_next()) { // iterate over data
+                        ++counters["TotalRecords"];
+                        auto i = ifs.next();
+                        std::string read = i->get_read().get_seq(); 
+                        find_longest(read, counters);
+                        Read r1(read, i->get_read().get_qual(), i->get_read().get_id());
+                        } 
                 }
             }
             
             if (std_in) {
                 bi::stream<bi::file_descriptor_source> tabin {fileno(stdin), bi::close_handle};
                 InputReader<ReadBase, TabReadImpl> ift(tabin);
-                //load_map(ift, counters, read_map, start, length);
+                    while(ift.has_next()) { // iterate over data
+                        ++counters["TotalRecords"];
+                        auto i = ifs.next();
+                        std::string read = i->get_read().get_seq(); 
+                        find_longest(read, counters);
+                        Read r1(read, i->get_read().get_qual(), i->get_read().get_id());
+                        } 
             }
 
             std::shared_ptr<HtsOfstream> out_1 = nullptr;
