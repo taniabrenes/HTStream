@@ -22,7 +22,35 @@ namespace
 
 } // namespace
 
+typedef std::unordered_map <std::string, size_t> Counter;
+
 namespace bi = boost::iostreams;
+
+template <class T, class Impl>
+void writer_helper(InputReader<T, Impl> &reader, std::unique_ptr<OutputWriter> &writer) {
+    while (reader.has_next()) {
+        writer->write(*reader.next());
+    }
+}
+
+template <class T, class Impl>
+void writer_helper(InputReader<T, Impl> &reader, std::unique_ptr<OutputWriter> &pe, std::unique_ptr<OutputWriter> &se) {
+    while (reader.has_next()) {
+        ReadBase *r = reader.next().get();
+        PairedEndRead *per = dynamic_cast<PairedEndRead*>(r);
+        if (per) {
+            pe->write(*per);
+        } else {
+            SingleEndRead *ser = dynamic_cast<SingleEndRead*>(r);
+            if (ser) {
+                se->write(*ser);
+            } else {
+                throw std::runtime_error("Unknow read found");
+            }
+        }
+    }
+}
+
 
 int main(int argc, char** argv)
 {
@@ -30,9 +58,6 @@ int main(int argc, char** argv)
     counters["TotalRecords"] = 0;
     counters["Replaced"] = 0;
     counters["HasN"] = 0;
-    counters["Discarded"] = 0;
-    counters["Kept"] = 0;
-    size_t start = 0, length = 0;
     std::string prefix;
     std::vector<std::string> default_outfiles = {"PE1", "PE2", "SE"};
 
@@ -42,8 +67,7 @@ int main(int argc, char** argv)
     bool std_in;
     bool gzip_out;
     bool interleaved_out;
-    bool force;
-
+    bool force; 
     try
     {
         /** Define and parse the program options
@@ -63,16 +87,13 @@ int main(int argc, char** argv)
             ("interleaved-input,I", po::value< std::vector<std::string> >(),
                                            "Interleaved input I <comma sep for multiple files>")
             ("stdin-input,S", po::bool_switch(&std_in)->default_value(false), "STDIN input <MUST BE TAB DELIMITED INPUT>")
-            ("start,s", po::value<size_t>(&start)->default_value(10),  "Start location for unique ID <int>")
-            ("length,l", po::value<size_t>(&length)->default_value(10), "Length of unique ID <int>")
-            ("quality-check-off,q",        "Quality Checking Off First Duplicate seen will be kept")
             ("gzip-output,g", po::bool_switch(&gzip_out)->default_value(false),  "Output gzipped")
             ("interleaved-output,i", po::bool_switch(&interleaved_out)->default_value(false),     "Output to interleaved")
             ("fastq-output,f", po::bool_switch(&fastq_out)->default_value(false), "Fastq format output")
             ("force,F", po::bool_switch(&force)->default_value(false),         "Forces overwrite of files")
             ("tab-output,t", po::bool_switch(&tab_out)->default_value(false),   "Tab-delimited output")
             ("to-stdout,O", po::bool_switch(&std_out)->default_value(false),    "Prints to STDOUT in Tab Delimited")
-            ("prefix,p", po::value<std::string>(&prefix)->default_value("output_nodup_"),
+            ("prefix,p", po::value<std::string>(&prefix)->default_value("converted_"),
                                            "Prefix for outputted files")
             ("log-file,L",                 "Output-Logfile")
             ("no-log,N",                   "No logfile <outputs to stderr>")
@@ -95,7 +116,44 @@ int main(int argc, char** argv)
 
             po::notify(vm); // throws on error, so do after help in case
             //Index 1 start location (making it more human friendly)
-            start--;
+            
+            std::shared_ptr<HtsOfstream> out_1 = nullptr;
+            std::shared_ptr<HtsOfstream> out_2 = nullptr;
+            std::shared_ptr<HtsOfstream> out_3 = nullptr;
+            
+            std::unique_ptr<OutputWriter> pe = nullptr;
+            std::unique_ptr<OutputWriter> se = nullptr;
+            
+            if (fastq_out || (! std_out && ! tab_out) ) {
+                for (auto& outfile: default_outfiles) {
+                    outfile = prefix + outfile + ".fastq";
+                }
+                
+                out_1.reset(new HtsOfstream(default_outfiles[0], force, gzip_out, false));
+                out_2.reset(new HtsOfstream(default_outfiles[1], force, gzip_out, false));
+                out_3.reset(new HtsOfstream(default_outfiles[2], force, gzip_out, false));
+
+                pe.reset(new PairedEndReadOutFastq(out_1, out_2));
+                se.reset(new SingleEndReadOutFastq(out_3));
+            } else if (interleaved_out)  {
+                for (auto& outfile: default_outfiles) {
+                    outfile = prefix + "INTER" + ".fastq";
+                }
+
+                out_1.reset(new HtsOfstream(default_outfiles[0], force, gzip_out, false));
+                out_3.reset(new HtsOfstream(default_outfiles[1], force, gzip_out, false));
+
+                pe.reset(new PairedEndReadOutInter(out_1));
+                se.reset(new SingleEndReadOutFastq(out_3));
+            } else if (tab_out || std_out) {
+                for (auto& outfile: default_outfiles) {
+                    outfile = prefix + "tab" + ".tastq";
+                }
+                out_1.reset(new HtsOfstream(default_outfiles[0], force, gzip_out, std_out));
+
+                pe.reset(new ReadBaseOutTab(out_1));
+                se.reset(new ReadBaseOutTab(out_1));
+            }
 
             // there are any problems
             if(vm.count("read1-input")) {
@@ -120,26 +178,22 @@ int main(int argc, char** argv)
                         find_longest(read_one, counters);
                         find_longest(read_two, counters);
                         // create new read objects
-                        Read r1(read_one, i->get_read_one().get_qual(), i->get_read_one().get_id());
-                        Read r2(read_two, i->get_read_two().get_qual(), i->get_read_two().get_id());
+                        std::istringstream out1("@" + i->get_read_one().get_id() + "\n" + read_one + "\n+\n" + i->get_read_one().get_qual() + "\n");
+                        std::istringstream out2("@" + i->get_read_two().get_id() + "\n" + read_two + "\n+\n" + i->get_read_two().get_qual() + "\n");
                         // write out
-                        }
+                        InputReader<PairedEndRead, PairedEndReadFastqImpl> ifp_out(out1, out2);
+                        writer_helper(ifp_out, pe);
                     }
+                }
             }
 
             if(vm.count("singleend-input")) {
                 auto read_files = vm["singleend-input"].as<std::vector<std::string> >();
                 for (auto file : read_files) {
-                    bi::stream<bi::file_descriptor_source> se{ check_open_r(file), bi::close_handle};
-                    InputReader<SingleEndRead, SingleEndReadFastqImpl> ifs(se);
-                    while(ifs.has_next()) { // iterate over data
-                        ++counters["TotalRecords"];
-                        auto i = ifs.next();
-                        std::string read = i->get_read().get_seq(); /
-                        find_longest(read, counters);
-                        Read r1(read, i->get_read().get_qual(), i->get_read().get_id());
-                        } 
-                   }
+                    bi::stream<bi::file_descriptor_source> sef{ check_open_r(file), bi::close_handle};
+                    InputReader<SingleEndRead, SingleEndReadFastqImpl> ifs(sef);
+                    writer_helper(ifs, se);
+                }
             }
             
             if(vm.count("tab-input")) {
@@ -147,13 +201,7 @@ int main(int argc, char** argv)
                 for (auto file : read_files) {
                     bi::stream<bi::file_descriptor_source> tabin{ check_open_r(file), bi::close_handle};
                     InputReader<ReadBase, TabReadImpl> ift(tabin);
-                    while(ift.has_next()) { // iterate over data
-                        ++counters["TotalRecords"];
-                        auto i = ifs.next();
-                        std::string read = i->get_read().get_seq(); 
-                        find_longest(read, counters);
-                        Read r1(read, i->get_read().get_qual(), i->get_read().get_id());
-                        } 
+                    writer_helper(ift, pe);
                 }
             }
             
@@ -162,68 +210,19 @@ int main(int argc, char** argv)
                 for (auto file : read_files) {
                     bi::stream<bi::file_descriptor_source> inter{ check_open_r(file), bi::close_handle};
                     InputReader<PairedEndRead, InterReadImpl> ifp(inter);
-                    while(ifp.has_next()) { // iterate over data
-                        ++counters["TotalRecords"];
-                        auto i = ifs.next();
-                        std::string read = i->get_read().get_seq(); 
-                        find_longest(read, counters);
-                        Read r1(read, i->get_read().get_qual(), i->get_read().get_id());
-                        } 
+                    writer_helper(ifp, pe);
                 }
             }
-            
+           
             if (std_in) {
                 bi::stream<bi::file_descriptor_source> tabin {fileno(stdin), bi::close_handle};
                 InputReader<ReadBase, TabReadImpl> ift(tabin);
-                    while(ift.has_next()) { // iterate over data
-                        ++counters["TotalRecords"];
-                        auto i = ifs.next();
-                        std::string read = i->get_read().get_seq(); 
-                        find_longest(read, counters);
-                        Read r1(read, i->get_read().get_qual(), i->get_read().get_id());
-                        } 
-            }
+                writer_helper(ift, pe, se);
+            }  
 
-            std::shared_ptr<HtsOfstream> out_1 = nullptr;
-            std::shared_ptr<HtsOfstream> out_2 = nullptr;
-            std::shared_ptr<HtsOfstream> out_3 = nullptr;
-
-            std::unique_ptr<OutputWriter> pe = nullptr;
-            std::unique_ptr<OutputWriter> se = nullptr;
-            
-            if (fastq_out || (! std_out && ! tab_out) ) {
-                for (auto& outfile: default_outfiles) {
-                    outfile = prefix + outfile + ".fastq";
-                }
-               
-                out_1.reset(new HtsOfstream(default_outfiles[0], force, gzip_out, false));
-                out_2.reset(new HtsOfstream(default_outfiles[1], force, gzip_out, false));
-                out_3.reset(new HtsOfstream(default_outfiles[2], force, gzip_out, false));
-                pe.reset(new PairedEndReadOutFastq(out_1, out_2));
-                se.reset(new SingleEndReadOutFastq(out_3));
-
-            } else if (interleaved_out)  {
-                for (auto& outfile: default_outfiles) {
-                    outfile = prefix + "INTER" + ".fastq";
-                }
-                
-                out_1.reset(new HtsOfstream(default_outfiles[0], force, gzip_out, false));
-                out_3.reset(new HtsOfstream(default_outfiles[1], force, gzip_out, false));
-
-                pe.reset(new PairedEndReadOutInter(out_1));
-                se.reset(new SingleEndReadOutFastq(out_3));
-            } else if (tab_out || std_out) {
-                for (auto& outfile: default_outfiles) {
-                    outfile = prefix + "tab" + ".tastq";
-                }
-                out_1.reset(new HtsOfstream(default_outfiles[0], force, gzip_out, std_out));
-
-                pe.reset(new ReadBaseOutTab(out_1));
-                se.reset(new ReadBaseOutTab(out_1));
-            }
-
-            //Crashes here after going to the deconstructor of HtsOfstream of tmp_1
-        } catch(po::error& e) {
+        }
+        catch(po::error& e)
+        {
             std::cerr << "ERROR: " << e.what() << std::endl << std::endl;
             std::cerr << desc << std::endl;
             return ERROR_IN_COMMAND_LINE;
@@ -238,8 +237,8 @@ int main(int argc, char** argv)
 
     }
 
-    std::cerr << "TotalRecords:" << counters["TotalRecords"] << "\tReplaced:" << counters["Replaced"]
-              << "\tHasN:" << counters["HasN"] << "\tDiscarded:" << counters["Discarded"] << std::endl;
+    /*std::cerr << "TotalRecords:" << counters["TotalRecords"] << "\tReplaced:" << counters["Replaced"]
+              << "\tHasN:" << counters["HasN"] << std::endl;*/
     return SUCCESS;
 
 }

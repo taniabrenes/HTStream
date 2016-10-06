@@ -170,7 +170,6 @@ int main(int argc, char** argv)
                 for(size_t i = 0; i < read1_files.size(); ++i) {
                     bi::stream<bi::file_descriptor_source> is1{check_open_r(read1_files[i]), bi::close_handle};
                     bi::stream<bi::file_descriptor_source> is2{check_open_r(read2_files[i]), bi::close_handle};
-                    
                     InputReader<PairedEndRead, PairedEndReadFastqImpl> ifp(is1, is2);
                     writer_helper(ifp, pe);
                 }
